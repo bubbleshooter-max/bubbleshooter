@@ -235,6 +235,8 @@
 </head>
 <body>
 
+  <audio id="bg-music" loop src="music/background.mp3"></audio>
+  
   <div class="page-title">Bubble Shooter</div>
 
   <div id="game-container">
@@ -286,7 +288,7 @@
       <div class="htp-content">
         <p style="font-size: 1.5rem; color: #00d2ff; font-weight: bold;">Best: <span id="score-best-display">0</span></p>
       </div>
-      <button class="btn" onclick="showOverlay('menu-main')">Back</button>
+      <button class="btn" onclick="goToMainMenu()">Back</button>
       <button class="btn btn-danger" onclick="clearHighScore()">Clear Score</button>
     </div>
 
@@ -297,7 +299,7 @@
       <button class="btn btn-secondary" onclick="resetGame()">Restart</button>
       <button class="btn btn-secondary" onclick="showOverlay('menu-htp')">How to Play</button>
       <button class="btn btn-secondary" id="btn-sound-pause" onclick="toggleSound()">Sound: ON</button>
-      <button class="btn btn-danger" onclick="showOverlay('menu-main')">Main Menu</button>
+      <button class="btn btn-danger" onclick="goToMainMenu()">Main Menu</button>
     </div>
 
     <!-- GAME OVER -->
@@ -307,20 +309,39 @@
       <p style="font-size: 1.2rem;">Score: <strong id="go-score">0</strong></p>
       <p style="font-size: 1.2rem; margin-bottom: 30px;">Best: <strong id="go-best">0</strong></p>
       <button class="btn" onclick="resetGame()">Play Again</button>
-      <button class="btn btn-secondary" onclick="showOverlay('menu-main')">Main Menu</button>
+      <button class="btn btn-secondary" onclick="goToMainMenu()">Main Menu</button>
     </div>
 
   </div>
 
   <script>
-    // --- AUDIO SYSTEM (Web Audio API) ---
+    // --- AUDIO SYSTEM (Web Audio API & Background Music) ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
     let soundEnabled = localStorage.getItem('bubbleSound') !== 'false';
 
+    const MUSIC_VOLUME = 0.22;
+    const bgMusic = document.getElementById('bg-music');
+    bgMusic.volume = MUSIC_VOLUME;
+
     function initAudio() {
       if (!audioCtx) audioCtx = new AudioContext();
       if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playMusic() {
+      if (soundEnabled) {
+        bgMusic.play().catch(e => console.warn("Background music autoplay prevented by browser", e));
+      }
+    }
+
+    function pauseMusic() {
+      bgMusic.pause();
+    }
+
+    function stopMusic() {
+      bgMusic.pause();
+      bgMusic.currentTime = 0;
     }
 
     function playTone(freq, type, duration, vol = 0.1, slideFreq = null) {
@@ -363,6 +384,13 @@
       soundEnabled = !soundEnabled;
       localStorage.setItem('bubbleSound', soundEnabled);
       updateSoundButtons();
+      
+      if (soundEnabled) {
+        if (gameState === 'PLAYING') playMusic();
+      } else {
+        pauseMusic();
+      }
+
       sfx.ui();
     }
 
@@ -434,6 +462,12 @@
       }
     }
 
+    function goToMainMenu() {
+      gameState = 'MENU';
+      stopMusic();
+      showOverlay('menu-main');
+    }
+
     function closeHTP() {
       initAudio();
       sfx.ui();
@@ -458,6 +492,8 @@
       gameState = 'PLAYING';
       showOverlay(null);
       showWaveAnnouncement();
+      stopMusic(); // Reset music to the beginning
+      playMusic();
     }
 
     function resetGame() {
@@ -469,6 +505,7 @@
       sfx.ui();
       gameState = 'PLAYING';
       showOverlay(null);
+      playMusic();
     }
 
     document.getElementById('btn-pause').addEventListener('click', () => {
@@ -476,11 +513,13 @@
         sfx.ui();
         gameState = 'PAUSED';
         showOverlay('menu-pause');
+        pauseMusic();
       }
     });
 
     function triggerGameOver() {
       gameState = 'GAMEOVER';
+      stopMusic();
       document.getElementById('go-score').innerText = score;
       
       let isNewBest = false;
